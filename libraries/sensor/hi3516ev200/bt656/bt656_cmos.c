@@ -1,5 +1,5 @@
 /*
- * OpenIPC.org
+ * OpenIPC.org bt656_cmos.c
  */
 
 #if !defined(__BT656_CMOS_H_)
@@ -54,6 +54,7 @@ extern int sensor_read_register(VI_PIPE ViPipe, int addr);
  ****************************************************************************/
 static GK_S32 bt656_set_bus_info(VI_PIPE ViPipe,
                                  ISP_SNS_COMMBUS_U unSNSBusInfo) {
+  //printf("|DEBUG|||||||||||||||||||||||| BT656 SET BUS INFO ||||||||||||||||||||||||||\n");
   g_aunBT656BusInfo[ViPipe].s8I2cDev = unSNSBusInfo.s8I2cDev;
 
   return GK_SUCCESS;
@@ -77,10 +78,12 @@ static GK_S32 sensor_ctx_init(VI_PIPE ViPipe) {
 
   BT656_SENSOR_SET_CTX(ViPipe, pastSnsStateCtx);
 
+
   return GK_SUCCESS;
 }
 
 static GK_VOID sensor_ctx_exit(VI_PIPE ViPipe) {
+  //printf("|DEBUG|||||||||||||||||| SENSOR CTX EXIT ||||||||||||||||||||||||||\n");
   ISP_SNS_STATE_S *pastSnsStateCtx = GK_NULL;
 
   BT656_SENSOR_GET_CTX(ViPipe, pastSnsStateCtx);
@@ -91,6 +94,7 @@ static GK_VOID sensor_ctx_exit(VI_PIPE ViPipe) {
 static GK_S32 sensor_register_callback(VI_PIPE ViPipe, ALG_LIB_S *pstAeLib,
                                        ALG_LIB_S *pstAwbLib) {
   GK_S32 s32Ret;
+  //printf("|DEBUG|||||||||||||||||||||||||||||| SENSOR REGISTER CALLBACK ||||||||||||||||||||||||||\n");
 
   s32Ret = sensor_ctx_init(ViPipe);
   if (s32Ret != GK_SUCCESS) {
@@ -104,6 +108,7 @@ static GK_S32 sensor_register_callback(VI_PIPE ViPipe, ALG_LIB_S *pstAeLib,
 
 static GK_S32 sensor_unregister_callback(VI_PIPE ViPipe, ALG_LIB_S *pstAeLib,
                                          ALG_LIB_S *pstAwbLib) {
+  //printf("|DEBUG|||||||||||||||||||||||||||| SENSOR UNREGISTER CALLBACK ||||||||||||||||||||||||||\n");
   sensor_ctx_exit(ViPipe);
 
   return GK_SUCCESS;
