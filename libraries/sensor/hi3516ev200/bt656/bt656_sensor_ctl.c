@@ -1,5 +1,5 @@
 /*
- * OpenIPC.org
+ * OpenIPC.org  bt656_sensor_ctl.c
  */
 #include <fcntl.h>
 #include <stdio.h>
@@ -22,6 +22,10 @@ const unsigned char bt656_i2c_addr = 0x88; /* TP9950 I2C Address */
 const unsigned int bt656_addr_byte = 1;
 const unsigned int bt656_data_byte = 1;
 static int g_fd[ISP_MAX_PIPE_NUM] = {[0 ...(ISP_MAX_PIPE_NUM - 1)] = -1};
+void bt656_init(VI_PIPE ViPipe);
+void tp9950_720p30_init(VI_PIPE ViPipe);
+static GK_S32 linkage(VI_PIPE ViPipe);
+
 
 extern ISP_SNS_STATE_S *g_pastBT656[ISP_MAX_PIPE_NUM];
 extern ISP_SNS_COMMBUS_U g_aunBT656BusInfo[];
@@ -77,6 +81,7 @@ int bt656_i2c_exit(VI_PIPE ViPipe) {
 }
 
 int sensor_read_register(VI_PIPE ViPipe, int addr) {
+  //printf("|DEBUG|||||||||||||||||||||||||||||| SENSOR READ REGISTER ||||||||||||||||||||||||||\n");
   GK_S32 s32RegVal = 0;
   if (g_fd[ViPipe] < 0) {
     ISP_TRACE(MODULE_DBG_ERR, "bt656 fd not opened!\n");
@@ -144,6 +149,7 @@ int sensor_read_register(VI_PIPE ViPipe, int addr) {
 }
 
 int sensor_write_register(VI_PIPE ViPipe, int addr, int data) {
+//  printf("|DEBUG|||||||||||||||||||||||||||||| SENSOR WRITE REGISTER ||||||||||||||||||||||||||\n");
   if (0 > g_fd[ViPipe]) {
     return GK_SUCCESS;
   }
@@ -195,22 +201,33 @@ int sensor_write_register(VI_PIPE ViPipe, int addr, int data) {
   return GK_SUCCESS;
 }
 
-void bt656_standby(VI_PIPE ViPipe) { return; }
+void bt656_standby(VI_PIPE ViPipe) {
+	//printf("|DEBUG|||||||||||||||||||||||||| BT656 STANDBY  ||||||||||||||||||||||||||\n");
+	return;
+}
 
-void bt656_restart(VI_PIPE ViPipe) { return; }
+void bt656_restart(VI_PIPE ViPipe) {
+	//printf("|DEBUG|||||||||||||||||||||||||| BT656 RESTART |||||||||||||||||||||||||||\n");
+	return;
+}
 
 void bt656_init(VI_PIPE ViPipe) {
+  //printf("|DEBUG|||||||||||||||||||||||||||||| BT656 INIT ||||||||||||||||||||||||||\n");
   sensor_i2c_init(ViPipe);
 
   tp9950_720p30_init(ViPipe);
   // tp9950_1080p30_init(ViPipe);
 
+  linkage(ViPipe);
+//  printf("binit %u",g_pastBT656[ViPipe]->bInit);
   g_pastBT656[ViPipe]->bInit = GK_TRUE;
+//  printf("binit %u",g_pastBT656[ViPipe]->bInit);
 
   return;
 }
 
 void bt656_exit(VI_PIPE ViPipe) {
+//  printf("|DEBUG|||||||||||||||||||||||||||||| BT656 EXIT ||||||||||||||||||||||||||\n");
   bt656_i2c_exit(ViPipe);
 
   return;
@@ -740,4 +757,88 @@ void tp9950_1080p30_init(VI_PIPE ViPipe) {
   printf("==== Techpoint TP9950 1080P30fps(BT656) init success! ==========\n");
   printf("================================================================\n");
   return;
+}
+/****************************************************************************
+ * Value Receive                                                            *
+ ****************************************************************************/
+
+static GK_S32 linkage(VI_PIPE ViPipe){
+  FILE *file = NULL;
+  printf("||||||||||||||||||| LINKAGE ||||||||||||||||||||||||||\n");
+  int icontrast = 0 ;
+  int ihue= 0x40;
+  int isaturation = 0x40;
+  int iluminance = 0;
+
+  // Reading all the info from majestic.yaml
+  #define BUFFER 10
+
+  FILE *output;
+  char buffer[BUFFER];
+  output  = popen("yaml-cli  -i /etc/majestic.yaml -g .image.contrast","r");
+  int count =1;
+  char str[6] = "";
+  while(fgets(buffer, BUFFER-1, output) != NULL){
+   strncat(str,buffer,6);
+   count++;
+  }
+  icontrast =atoi(str);
+
+  buffer[0]='\0';
+  output  = popen("yaml-cli  -i /etc/majestic.yaml -g .image.hue","r");
+  count =1;
+  str[0] = '\0';
+  while(fgets(buffer, BUFFER-1, output) != NULL){
+   strncat(str,buffer,6);
+   count++;
+  }
+  ihue= atoi(str);
+
+  buffer[0]='\0';
+  output  = popen("yaml-cli  -i /etc/majestic.yaml -g .image.saturation","r");
+  count =1;
+  str[0] = '\0';
+  while(fgets(buffer, BUFFER-1, output) != NULL){
+   strncat(str,buffer,6);
+   count++;
+  }
+  isaturation = atoi(str);
+
+  buffer[0]='\0';
+  output  = popen("yaml-cli  -i /etc/majestic.yaml -g .image.luminance","r");
+  count =1;
+  str[0] = '\0';
+  while(fgets(buffer, BUFFER-1, output) != NULL){
+   strncat(str,buffer,6);
+   count++;
+  }
+  iluminance = atoi(str);
+
+
+  // Write i2c parameter on Tp9950
+  //printf("icontrast:%u\n" , icontrast);
+  icontrast = (int)((float)icontrast*1.27);
+  if(icontrast == 0)  sensor_write_register(ViPipe, 0x11, 0x40);
+  else  sensor_write_register(ViPipe, 0x11, icontrast);
+
+  //printf("ihue:%d\n" , ihue);
+  ihue = ((int)((float)ihue*2.50))-125;
+  if(ihue == 0)  sensor_write_register(ViPipe, 0x13, 0x00);
+  else  sensor_write_register(ViPipe, 0x13, ihue);
+
+  //printf("isaturation:%u\n" , isaturation);
+  isaturation = (int)((float)isaturation*1.27);
+  if(isaturation == 0)  sensor_write_register(ViPipe, 0x12, 0x00);
+  else  sensor_write_register(ViPipe, 0x12, isaturation);
+
+  //printf("iluminance:%u\n" , iluminance);
+  iluminance = (int)((float)iluminance*1.27);
+  if(iluminance == 0)  sensor_write_register(ViPipe, 0x10, 0x00);
+  else  sensor_write_register(ViPipe, 0x10, iluminance);
+
+  // Default values
+  //.image.contrast: 0
+  //.image.hue: 50
+  //.image.saturation: 50
+  //.image.luminance: 0
 }
